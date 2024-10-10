@@ -14,6 +14,11 @@ export const DEFAULT_VIEW_PANELS = {
   WELCOME: 'welcome',
   AUTH: 'auth',
   PROFILE: 'profile',
+  SAVED: 'saved',
+  CREATEHISTORY: 'createhistory',
+  CREATECHAPTER: 'createchapter',
+  HISTORYDETAILS: 'historydetails',
+  CHAPTERDETAILS: 'chapterdetails',
 };
 
 export const routes = RoutesConfig.create([
@@ -23,6 +28,11 @@ export const routes = RoutesConfig.create([
       createPanel(DEFAULT_VIEW_PANELS.WELCOME, '/welcome', []),
       createPanel(DEFAULT_VIEW_PANELS.AUTH, '/auth', []),
       createPanel(DEFAULT_VIEW_PANELS.PROFILE, '/profile', []),
+      createPanel(DEFAULT_VIEW_PANELS.SAVED, '/saved', []),
+      createPanel(DEFAULT_VIEW_PANELS.CREATEHISTORY, '/createhistory', []),
+      createPanel(DEFAULT_VIEW_PANELS.CREATECHAPTER, '/createchapter', []),
+      createPanel(DEFAULT_VIEW_PANELS.HISTORYDETAILS, '/historydetails/:storyId', []),
+      createPanel(DEFAULT_VIEW_PANELS.CHAPTERDETAILS, '/chapterdetails/:chapterId', []),
     ]),
   ]),
 ]);

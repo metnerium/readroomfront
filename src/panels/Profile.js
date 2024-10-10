@@ -1,17 +1,37 @@
-import  { useState, useEffect } from 'react';
-import { Panel, PanelHeader, Header, Button, Group, Cell, Div, Avatar, FormLayoutGroup, FormItem, Input, Textarea, Snackbar } from '@vkontakte/vkui';
-import { useRouteNavigator } from '@vkontakte/vk-mini-apps-router';
-import { Icon24Error } from '@vkontakte/icons';
+import React, { useState, useEffect } from 'react';
+import {
+    Panel, PanelHeader, Header, Button, Group, Div, Avatar,
+    FormLayoutGroup, FormItem, Input, Textarea, Snackbar,
+    Title, Text, Card, CardGrid, PanelHeaderButton,
+    ScreenSpinner, ConfigProvider, useAdaptivity, ButtonGroup
+} from '@vkontakte/vkui';
+import {
+    Icon28ChevronBack,
+    Icon20DoorEnterArrowRightOutline, Icon24PenOutline
+} from '@vkontakte/icons';
 import axios from 'axios';
+import bridge from "@vkontakte/vk-bridge";
+import { useRouteNavigator } from "@vkontakte/vk-mini-apps-router";
 
-const API_BASE_URL = '/';
+const API_BASE_URL = 'https://api-metnerium.ru';
+
+const formatNumber = (num) => {
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'М';
+    } else if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'К';
+    }
+    return num.toString();
+};
 
 export const Profile = ({ id, fetchedUser, token }) => {
-    const routeNavigator = useRouteNavigator();
+    const { viewWidth } = useAdaptivity();
     const [profile, setProfile] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editedProfile, setEditedProfile] = useState({});
     const [snackbar, setSnackbar] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const routeNavigator = useRouteNavigator();
 
     useEffect(() => {
         fetchProfile();
@@ -19,31 +39,43 @@ export const Profile = ({ id, fetchedUser, token }) => {
 
     const fetchProfile = async () => {
         if (!token) return;
+        setIsLoading(true);
         try {
-            const response = await axios.get(`${API_BASE_URL}/users/me`, {
+            const response1 = await axios.get(`${API_BASE_URL}/users/me`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+            const userId = response1.data.id || 'me';
+            const response = await axios.get(`${API_BASE_URL}/users/profile/${userId}`);
             setProfile(response.data);
             setEditedProfile(response.data);
         } catch (error) {
-            console.error('Failed to fetch profile:', error);
-            showError('Failed to load profile. Please try again.');
+            console.error('Не удалось загрузить профиль:', error);
+            showError('Не удалось загрузить профиль. Пожалуйста, попробуйте снова.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const handleEdit = () => setIsEditing(true);
-
+    const handleLogout = async () => {
+        await bridge.send('VKWebAppStorageSet', { key: 'token', value: '' });
+        await routeNavigator.push('/welcome');
+    }
     const handleSave = async () => {
+        setIsLoading(true);
         try {
             const response = await axios.put(`${API_BASE_URL}/users/me`, editedProfile, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setProfile(response.data);
+
             setIsEditing(false);
-            showSuccess('Profile updated successfully!');
+            await routeNavigator.push('/profile');
+            showSuccess('Профиль успешно обновлен!');
         } catch (error) {
-            console.error('Failed to update profile:', error);
-            showError('Failed to update profile. Please try again.');
+            console.error('Не удалось обновить профиль:', error);
+            showError('Не удалось обновить профиль. Пожалуйста, попробуйте снова.');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -51,34 +83,9 @@ export const Profile = ({ id, fetchedUser, token }) => {
         setEditedProfile({ ...editedProfile, [e.target.name]: e.target.value });
     };
 
-    const handleAvatarChange = async (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const formData = new FormData();
-            formData.append('avatar', file);
-            try {
-                const response = await axios.post(`${API_BASE_URL}/users/avatar`, formData, {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'multipart/form-data'
-                    }
-                });
-                setEditedProfile({ ...editedProfile, avatar_url: response.data.avatar_url });
-            } catch (error) {
-                console.error('Failed to upload avatar:', error);
-                showError('Failed to upload avatar. Please try again.');
-            }
-        }
-    };
-
     const showError = (message) => {
         setSnackbar(
-            <Snackbar
-                layout="vertical"
-                onClose={() => setSnackbar(null)}
-                before={<Icon24Error />}
-                duration={3000}
-            >
+            <Snackbar onClose={() => setSnackbar(null)} duration={3000}>
                 {message}
             </Snackbar>
         );
@@ -86,97 +93,110 @@ export const Profile = ({ id, fetchedUser, token }) => {
 
     const showSuccess = (message) => {
         setSnackbar(
-            <Snackbar
-                layout="vertical"
-                onClose={() => setSnackbar(null)}
-                duration={3000}
-            >
+            <Snackbar onClose={() => setSnackbar(null)} duration={3000}>
                 {message}
             </Snackbar>
         );
     };
 
-    return (
+    const renderEditForm = () => (
         <Panel id={id}>
-            <PanelHeader>Profile</PanelHeader>
+            <PanelHeader
+                left={<PanelHeaderButton onClick={() => setIsEditing(false)}><Icon28ChevronBack /></PanelHeaderButton>}
+            >
+                Редактирование профиля
+            </PanelHeader>
+            <Group>
+                <FormLayoutGroup>
+                    <FormItem top="Полное имя">
+                        <Input
+                            name="full_name"
+                            value={editedProfile.full_name}
+                            onChange={handleChange}
+                        />
+                    </FormItem>
+                    <FormItem top="Псевдоним">
+                        <Input
+                            name="pseudonym"
+                            value={editedProfile.pseudonym}
+                            onChange={handleChange}
+                        />
+                    </FormItem>
+                    <FormItem top="О себе">
+                        <Textarea
+                            name="bio"
+                            value={editedProfile.bio}
+                            onChange={handleChange}
+                        />
+                    </FormItem>
+                </FormLayoutGroup>
+            </Group>
+            <Div>
+                <Button size="l" stretched onClick={handleSave}>
+                    Сохранить изменения
+                </Button>
+            </Div>
+        </Panel>
+    );
+
+    const renderProfile = () => (
+        <Panel id={id}>
+            <PanelHeader
+            >
+                Профиль
+            </PanelHeader>
             {profile && (
-                <Group header={<Header mode="secondary">User Profile</Header>}>
-                    {!isEditing ? (
-                        <>
-                            <Cell
-                                before={<Avatar src={profile.avatar_url || fetchedUser?.photo_200} size={80} />}
-                                description={profile.pseudonym}
-                            >
-                                {profile.full_name}
-                            </Cell>
-                            <Cell>
-                                <Header mode="secondary">Bio</Header>
-                                {profile.bio || 'No bio available'}
-                            </Cell>
-                            <Cell>
-                                <Header mode="secondary">Email</Header>
-                                {profile.email}
-                            </Cell>
-                            <Div>
-                                <Button stretched size="l" mode="secondary" onClick={handleEdit} style={{ marginBottom: 16 }}>
-                                    Edit Profile
-                                </Button>
-                                <Button stretched size="l" mode="secondary" onClick={() => routeNavigator.push('/')}>
-                                    Back to Home
-                                </Button>
-                            </Div>
-                        </>
-                    ) : (
-                        <FormLayoutGroup>
-                            <FormItem top="Avatar" bottom="Click to change avatar">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleAvatarChange}
-                                    style={{ display: 'none' }}
-                                    id="avatar-upload"
-                                />
-                                <label htmlFor="avatar-upload">
-                                    <Avatar src={editedProfile.avatar_url || fetchedUser?.photo_200} size={80} style={{ cursor: 'pointer' }} />
-                                </label>
-                            </FormItem>
-                            <FormItem top="Full Name">
-                                <Input
-                                    name="full_name"
-                                    value={editedProfile.full_name}
-                                    onChange={handleChange}
-                                />
-                            </FormItem>
-                            <FormItem top="Pseudonym">
-                                <Input
-                                    name="pseudonym"
-                                    value={editedProfile.pseudonym}
-                                    onChange={handleChange}
-                                />
-                            </FormItem>
-                            <FormItem top="Bio">
-                                <Textarea
-                                    name="bio"
-                                    value={editedProfile.bio}
-                                    onChange={handleChange}
-                                />
-                            </FormItem>
-                            <FormItem>
-                                <Button size="l" stretched onClick={handleSave}>
-                                    Save Changes
-                                </Button>
-                            </FormItem>
-                            <FormItem>
-                                <Button size="l" stretched mode="secondary" onClick={() => setIsEditing(false)}>
-                                    Cancel
-                                </Button>
-                            </FormItem>
-                        </FormLayoutGroup>
-                    )}
-                </Group>
+                <Div>
+                    <Group>
+                        <Div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', background: 'linear-gradient(45deg, #ff0000, #9C27B0)', padding: '20px', borderRadius: '12px' }}>
+                            <Avatar src={profile.avatar_url || fetchedUser?.photo_200} size={96} style={{ border: '4px solid #FFF' }} />
+                            <Title level="2" style={{ marginTop: 16, color: '#FFF' }}>{profile.full_name}</Title>
+                            <Text style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{profile.pseudonym || '@' + profile.full_name.toLowerCase().replace(' ', '')}</Text>
+                            <ButtonGroup>
+                                <Button mode={"secondary"} onClick={handleLogout}><Icon20DoorEnterArrowRightOutline/></Button>
+                                <Button mode={"secondary"} onClick={handleEdit}><Icon24PenOutline/></Button>
+                            </ButtonGroup>
+                        </Div>
+                    </Group>
+
+                    <Group header={<Header mode="secondary">Статистика</Header>}>
+                        <CardGrid size="l">
+                            <Card>
+                                <Div style={{ textAlign: 'center' }}>
+                                    <Title level="3">Подписчики</Title>
+                                    <Text style={{ fontSize: '24px', fontWeight: 'bold' }}>{formatNumber(profile.followers_count)}</Text>
+                                </Div>
+                            </Card>
+                            <Card>
+                                <Div style={{ textAlign: 'center' }}>
+                                    <Title level="3">Подписки</Title>
+                                    <Text style={{ fontSize: '24px', fontWeight: 'bold' }}>{formatNumber(profile.following_count)}</Text>
+                                </Div>
+                            </Card>
+                            <Card>
+                                <Div style={{ textAlign: 'center' }}>
+                                    <Title level="3">Истории</Title>
+                                    <Text style={{ fontSize: '24px', fontWeight: 'bold' }}>{formatNumber(profile.stories_count)}</Text>
+                                </Div>
+                            </Card>
+                        </CardGrid>
+                    </Group>
+
+                    <Group header={<Header mode="secondary">О себе</Header>}>
+                        <Div>
+                            <Text style={{ fontStyle: 'italic' }}>{profile.bio || 'Информация отсутствует'}</Text>
+                        </Div>
+                    </Group>
+                </Div>
             )}
             {snackbar}
         </Panel>
     );
-};
 
+    return (
+        <ConfigProvider>
+            {isLoading && <ScreenSpinner state="loading" />}
+            {isEditing ? renderEditForm() : renderProfile()}
+        </ConfigProvider>
+    );
+};

@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
 import bridge from '@vkontakte/vk-bridge';
-import { View, SplitLayout, SplitCol, ScreenSpinner, Snackbar } from '@vkontakte/vkui';
+import {View, SplitLayout, SplitCol, ScreenSpinner, Snackbar, Epic, TabbarItem, Tabbar} from '@vkontakte/vkui';
 import { useActiveVkuiLocation, useRouteNavigator } from '@vkontakte/vk-mini-apps-router';
-import { Icon16Done, Icon16Cancel } from '@vkontakte/icons';
+import {
+  Icon16Done,
+  Icon16Cancel,
+  Icon28NewsfeedOutline,
+  Icon28UserCircleOutline, Icon28FavoriteOutline
+} from '@vkontakte/icons';
 import api, { login } from './api';
 
 import { Home } from './panels/Home';
 import { Welcome } from './panels/Welcome';
 import { Auth } from './panels/Auth';
 import { Profile } from './panels/Profile';
+import {Saved} from './panels/Saved';
+import {ChapterDetails, CreateHistory} from "./panels/index.js";
+import {CreateChapter} from "./panels/index.js";
+import {HistoryDetails} from './panels/index.js';
 import { DEFAULT_VIEW_PANELS } from './routes';
 
 export const App = () => {
@@ -18,6 +27,9 @@ export const App = () => {
   const [popout, setPopout] = useState(<ScreenSpinner size="large" />);
   const [token, setToken] = useState(null);
   const [snackbar, setSnackbar] = useState(null);
+  const [activeStory, setActiveStory] = useState('home');
+  const isAuthRoute = [DEFAULT_VIEW_PANELS.WELCOME, DEFAULT_VIEW_PANELS.AUTH].includes(activePanel);
+  const shouldShowTabbar = ![DEFAULT_VIEW_PANELS.WELCOME, DEFAULT_VIEW_PANELS.AUTH].includes(activePanel);
 
   useEffect(() => {
     async function fetchData() {
@@ -99,15 +111,41 @@ export const App = () => {
     showSnackbar('Информация', 'Вы вышли из системы', 'green');
   };
 
+
+  const tabbar = !isAuthRoute ? (
+      <Tabbar>
+        <TabbarItem
+            onClick={() => routeNavigator.push('/saved')}
+            selected={activePanel === DEFAULT_VIEW_PANELS.SAVED}
+            text="Сохраненное"
+        ><Icon28FavoriteOutline /></TabbarItem>
+        <TabbarItem
+            onClick={() => routeNavigator.push('/')}
+            selected={activePanel === DEFAULT_VIEW_PANELS.HOME}
+            text="Главная"
+        ><Icon28NewsfeedOutline /></TabbarItem>
+        <TabbarItem
+            onClick={() => routeNavigator.push('/profile')}
+            selected={activePanel === DEFAULT_VIEW_PANELS.PROFILE}
+            text="Профиль"
+        ><Icon28UserCircleOutline /></TabbarItem>
+      </Tabbar>
+  ) : null;
+
   return (
       <SplitLayout popout={popout}>
         <SplitCol>
-          <View activePanel={activePanel}>
+          <Epic activeStory={activePanel} tabbar={tabbar}>
             <Home id={DEFAULT_VIEW_PANELS.HOME} fetchedUser={fetchedUser} onLogout={handleLogout} />
+            <Saved id={DEFAULT_VIEW_PANELS.SAVED} />
+            <Profile id={DEFAULT_VIEW_PANELS.PROFILE} fetchedUser={fetchedUser} token={token} />
             <Welcome id={DEFAULT_VIEW_PANELS.WELCOME} />
             <Auth id={DEFAULT_VIEW_PANELS.AUTH} onLogin={handleLogin} onRegister={handleRegister} />
-            <Profile id={DEFAULT_VIEW_PANELS.PROFILE} fetchedUser={fetchedUser} token={token} />
-          </View>
+            <CreateHistory id={DEFAULT_VIEW_PANELS.CREATEHISTORY} />
+            <CreateChapter id={DEFAULT_VIEW_PANELS.CREATECHAPTER} />
+            <HistoryDetails id={DEFAULT_VIEW_PANELS.HISTORYDETAILS}/>
+            <ChapterDetails id={DEFAULT_VIEW_PANELS.CHAPTERDETAILS} />
+          </Epic>
           {snackbar}
         </SplitCol>
       </SplitLayout>
