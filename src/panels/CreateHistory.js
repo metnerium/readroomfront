@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
     Panel, PanelHeader, PanelHeaderBack, Group, FormItem, Input, Textarea, Select, File, Button,
-    Div, Image, FormLayoutGroup, ScreenSpinner
+    Div, Image, FormLayoutGroup, ScreenSpinner, FormStatus
 } from '@vkontakte/vkui';
 import { Icon24Camera } from '@vkontakte/icons';
 import bridge from "@vkontakte/vk-bridge";
-import { useActiveVkuiLocation, useRouteNavigator } from '@vkontakte/vk-mini-apps-router';
+import { useRouteNavigator } from '@vkontakte/vk-mini-apps-router';
 import axios from "axios";
 
 const genresOptions = [
@@ -28,40 +28,67 @@ export const CreateHistory = ({ id, onBackClick }) => {
     const [coverImage, setCoverImage] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [touched, setTouched] = useState({});
+    const [submitAttempted, setSubmitAttempted] = useState(false);
     const routeNavigator = useRouteNavigator();
+
+    const handleBlur = (field) => {
+        setTouched(prev => ({ ...prev, [field]: true }));
+    };
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                setError('Размер файла не должен превышать 5MB');
+                return;
+            }
             setCoverImage(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreviewImage(reader.result);
             };
             reader.readAsDataURL(file);
+            handleBlur('coverImage');
         }
     };
 
+    const validateForm = () => {
+        const errors = {};
+        if (!title.trim()) errors.title = 'Пожалуйста, введите название истории';
+        if (!summary.trim()) errors.summary = 'Пожалуйста, введите краткое описание истории';
+        if (!genre) errors.genre = 'Пожалуйста, выберите жанр';
+        if (!previewImage) errors.coverImage = 'Пожалуйста, загрузите обложку';
+        return errors;
+    };
+
     const handleSubmit = async () => {
+        setSubmitAttempted(true);
+        const formErrors = validateForm();
+        if (Object.keys(formErrors).length > 0) {
+            setError('Пожалуйста, заполните все обязательные поля');
+            return;
+        }
+
         setLoading(true);
+        setError('');
 
         try {
-            // Получение токена из хранилища
             const storedToken = await bridge.send('VKWebAppStorageGet', { keys: ['token'] });
             const token = storedToken.keys[0].value;
 
-            // Подготовка данных для отправки
             const storyData = {
                 title,
                 summary,
                 genre,
-                cover_image_url: previewImage // Используем base64 изображения напрямую
+                cover_image_url: previewImage
             };
 
-            // Отправка запроса
             const response = await axios.post('https://api-metnerium.ru/stories/', storyData, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
+                    'accept': 'application/json',
                     'Content-Type': 'application/json'
                 }
             });
@@ -69,15 +96,18 @@ export const CreateHistory = ({ id, onBackClick }) => {
             if (response.status !== 200) {
                 throw new Error('Ошибка при создании истории');
             }
-            await routeNavigator.push('/')
-            // История успешно создана
-             // Возвращаемся на предыдущую страницу
+            await routeNavigator.push('/');
         } catch (error) {
-            console.error('Ошибка при создании истории:', error);
-            // Здесь можно добавить отображение ошибки пользователю
+            setError('Ошибка при создании истории: ' + error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const getFieldStatus = (field) => {
+        if (!touched[field] && !submitAttempted) return 'default';
+        const errors = validateForm();
+        return errors[field] ? 'error' : 'valid';
     };
 
     return (
@@ -86,30 +116,52 @@ export const CreateHistory = ({ id, onBackClick }) => {
                 Создание истории
             </PanelHeader>
             <Group>
+                {error && <FormStatus mode="error">{error}</FormStatus>}
                 <FormLayoutGroup>
-                    <FormItem top="Название">
+                    <FormItem
+                        top="Название"
+                        status={getFieldStatus('title')}
+                        bottom={getFieldStatus('title') === 'error' ? 'Обязательное поле' : ''}
+                    >
                         <Input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
+                            onBlur={() => handleBlur('title')}
                             placeholder="Введите название истории"
                         />
                     </FormItem>
-                    <FormItem top="Краткое описание">
+                    <FormItem
+                        top="Краткое описание"
+                        status={getFieldStatus('summary')}
+                        bottom={getFieldStatus('summary') === 'error' ? 'Обязательное поле' : ''}
+                    >
                         <Textarea
                             value={summary}
                             onChange={(e) => setSummary(e.target.value)}
+                            onBlur={() => handleBlur('summary')}
                             placeholder="Введите краткое описание истории"
                         />
                     </FormItem>
-                    <FormItem top="Жанр">
+                    <FormItem
+                        top="Жанр"
+                        status={getFieldStatus('genre')}
+                        bottom={getFieldStatus('genre') === 'error' ? 'Обязательное поле' : ''}
+                    >
                         <Select
                             value={genre}
-                            onChange={(e) => setGenre(e.target.value)}
+                            onChange={(e) => {
+                                setGenre(e.target.value);
+                                handleBlur('genre');
+                            }}
                             options={genresOptions}
                             placeholder="Выберите жанр"
                         />
                     </FormItem>
-                    <FormItem top="Обложка">
+                    <FormItem
+                        top="Обложка"
+                        status={getFieldStatus('coverImage')}
+                        bottom={getFieldStatus('coverImage') === 'error' ? 'Обязательное поле' : ''}
+                    >
                         <File
                             before={<Icon24Camera />}
                             size="m"

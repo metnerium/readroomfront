@@ -3,15 +3,19 @@ import {
     Panel, PanelHeader, Header, Button, Group, Div, Avatar,
     FormLayoutGroup, FormItem, Input, Textarea, Snackbar,
     Title, Text, Card, CardGrid, PanelHeaderButton,
-    ScreenSpinner, ConfigProvider, useAdaptivity, ButtonGroup
+    ScreenSpinner, ConfigProvider, useAdaptivity, ButtonGroup,
+    SimpleCell, InfoRow, IconButton
 } from '@vkontakte/vkui';
 import {
     Icon28ChevronBack,
-    Icon20DoorEnterArrowRightOutline, Icon24PenOutline
+    Icon20DoorEnterArrowRightOutline, Icon24PenOutline,
+    Icon28ViewOutline, Icon28LikeOutline, Icon28BookmarkOutline,
+    Icon24ChevronDown
 } from '@vkontakte/icons';
 import axios from 'axios';
 import bridge from "@vkontakte/vk-bridge";
 import { useRouteNavigator } from "@vkontakte/vk-mini-apps-router";
+
 
 const API_BASE_URL = 'https://api-metnerium.ru';
 
@@ -24,9 +28,49 @@ const formatNumber = (num) => {
     return num.toString();
 };
 
+const StoryWithChapters = ({ story, chapters, onStoryClick, onChapterClick }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const routeNavigator = useRouteNavigator();
+
+    return (
+        <Div>
+            <SimpleCell
+                onClick={() => onStoryClick(story.id)}
+                after={
+                    <IconButton onClick={(e) => {
+                        e.stopPropagation();
+                        setIsExpanded(!isExpanded);
+                    }}>
+                        <Icon24ChevronDown style={{ transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
+                    </IconButton>
+                }
+            >
+                <InfoRow header={story.title}>
+                    {`${chapters.length} ${chapters.length === 1 ? 'глава' : 'главы'}`}
+                </InfoRow>
+            </SimpleCell>
+
+            {isExpanded && (
+                <Div style={{ paddingLeft: 12 }}>
+                    {chapters.map((chapter) => (
+                        <SimpleCell
+                            key={chapter.id}
+                            onClick={() => onChapterClick(chapter.id)}
+                        >
+                            <InfoRow header={`Глава ${chapter.chapter_number}: ${chapter.title}`}>
+                            </InfoRow>
+                        </SimpleCell>
+                    ))}
+                </Div>
+            )}
+        </Div>
+    );
+};
+
 export const Profile = ({ id, fetchedUser, token }) => {
     const { viewWidth } = useAdaptivity();
     const [profile, setProfile] = useState(null);
+    const [storiesWithChapters, setStoriesWithChapters] = useState([]);
     const [isEditing, setIsEditing] = useState(false);
     const [editedProfile, setEditedProfile] = useState({});
     const [snackbar, setSnackbar] = useState(null);
@@ -35,6 +79,7 @@ export const Profile = ({ id, fetchedUser, token }) => {
 
     useEffect(() => {
         fetchProfile();
+        fetchUserStories();
     }, [token]);
 
     const fetchProfile = async () => {
@@ -49,18 +94,42 @@ export const Profile = ({ id, fetchedUser, token }) => {
             setProfile(response.data);
             setEditedProfile(response.data);
         } catch (error) {
-            console.error('Не удалось загрузить профиль:', error);
+            console.error('Не удалось загрузить профиль:');
             showError('Не удалось загрузить профиль. Пожалуйста, попробуйте снова.');
         } finally {
             setIsLoading(false);
         }
     };
 
+    const fetchUserStories = async () => {
+        if (!token) return;
+        try {
+            const response1 = await axios.get(`${API_BASE_URL}/users/me`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const userId = response1.data.id || 'me';
+            const response = await axios.get(`${API_BASE_URL}/usercontent/users/${userId}/stories`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const storiesPromises = response.data.map(async (story) => {
+                const chaptersResponse = await axios.get(`${API_BASE_URL}/chapters/story/${story.id}`);
+                return { ...story, chapters: chaptersResponse.data };
+            });
+            const storiesWithChapters = await Promise.all(storiesPromises);
+            setStoriesWithChapters(storiesWithChapters);
+        } catch (error) {
+            console.error('Не удалось загрузить истории пользователя:');
+            showError('Не удалось загрузить истории. Пожалуйста, попробуйте снова.');
+        }
+    };
+
     const handleEdit = () => setIsEditing(true);
+
     const handleLogout = async () => {
         await bridge.send('VKWebAppStorageSet', { key: 'token', value: '' });
         await routeNavigator.push('/welcome');
     }
+
     const handleSave = async () => {
         setIsLoading(true);
         try {
@@ -72,7 +141,7 @@ export const Profile = ({ id, fetchedUser, token }) => {
             await routeNavigator.push('/profile');
             showSuccess('Профиль успешно обновлен!');
         } catch (error) {
-            console.error('Не удалось обновить профиль:', error);
+            console.error('Не удалось обновить профиль:');
             showError('Не удалось обновить профиль. Пожалуйста, попробуйте снова.');
         } finally {
             setIsLoading(false);
@@ -138,11 +207,16 @@ export const Profile = ({ id, fetchedUser, token }) => {
             </Div>
         </Panel>
     );
+    const handleStoryClick = (storyId) => {
+        routeNavigator.push(`/historydetails/${storyId}`);
+    };
 
+    const handleChapterClick = (chapterId) => {
+        routeNavigator.push(`/chapterdetails/${chapterId}`);
+    };
     const renderProfile = () => (
         <Panel id={id}>
-            <PanelHeader
-            >
+            <PanelHeader>
                 Профиль
             </PanelHeader>
             {profile && (
@@ -153,8 +227,8 @@ export const Profile = ({ id, fetchedUser, token }) => {
                             <Title level="2" style={{ marginTop: 16, color: '#FFF' }}>{profile.full_name}</Title>
                             <Text style={{ color: 'rgba(255, 255, 255, 0.7)' }}>{profile.pseudonym || '@' + profile.full_name.toLowerCase().replace(' ', '')}</Text>
                             <ButtonGroup>
-                                <Button mode={"secondary"} onClick={handleLogout}><Icon20DoorEnterArrowRightOutline/></Button>
-                                <Button mode={"secondary"} onClick={handleEdit}><Icon24PenOutline/></Button>
+                                <Button mode="secondary" onClick={handleLogout}><Icon20DoorEnterArrowRightOutline/></Button>
+                                <Button mode="secondary" onClick={handleEdit}><Icon24PenOutline/></Button>
                             </ButtonGroup>
                         </Div>
                     </Group>
@@ -187,6 +261,18 @@ export const Profile = ({ id, fetchedUser, token }) => {
                             <Text style={{ fontStyle: 'italic' }}>{profile.bio || 'Информация отсутствует'}</Text>
                         </Div>
                     </Group>
+
+                    <Group header={<Header mode="secondary">Мои истории</Header>}>
+                        {storiesWithChapters.map((story) => (
+                            <StoryWithChapters
+                                key={story.id}
+                                story={story}
+                                chapters={story.chapters}
+                                onStoryClick={handleStoryClick}
+                                onChapterClick={handleChapterClick}
+                            />
+                        ))}
+                    </Group>
                 </Div>
             )}
             {snackbar}
@@ -200,3 +286,4 @@ export const Profile = ({ id, fetchedUser, token }) => {
         </ConfigProvider>
     );
 };
+

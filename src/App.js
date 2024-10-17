@@ -18,6 +18,8 @@ import {Saved} from './panels/Saved';
 import {ChapterDetails, CreateHistory} from "./panels/index.js";
 import {CreateChapter} from "./panels/index.js";
 import {HistoryDetails} from './panels/index.js';
+import {Category} from './panels/Category';
+import {User} from './panels/User';
 import { DEFAULT_VIEW_PANELS } from './routes';
 
 export const App = () => {
@@ -31,6 +33,8 @@ export const App = () => {
   const isAuthRoute = [DEFAULT_VIEW_PANELS.WELCOME, DEFAULT_VIEW_PANELS.AUTH].includes(activePanel);
   const shouldShowTabbar = ![DEFAULT_VIEW_PANELS.WELCOME, DEFAULT_VIEW_PANELS.AUTH].includes(activePanel);
 
+  const url = window.location.search.slice(1);
+
   useEffect(() => {
     async function fetchData() {
       const user = await bridge.send('VKWebAppGetUserInfo');
@@ -38,7 +42,6 @@ export const App = () => {
 
       try {
         const storedToken = await bridge.send('VKWebAppStorageGet', { keys: ['token'] });
-        console.log('Сохраненный токен:', storedToken.keys[0].value);
         if (storedToken.keys[0].value) {
           setToken(storedToken.keys[0].value);
           await routeNavigator.push('/');
@@ -46,15 +49,41 @@ export const App = () => {
           await routeNavigator.push('/welcome');
         }
       } catch (error) {
-        console.error('Не удалось получить токен из хранилища:', error);
         showSnackbar('Ошибка', 'Не удалось получить данные пользователя', 'red');
       }
 
       setPopout(null);
     }
     fetchData();
+    fetchAd();
   }, [routeNavigator]);
-
+  const fetchAd = async () => {
+    bridge.send('VKWebAppCheckNativeAds', {
+      ad_format: 'interstitial' /* Тип рекламы */
+    })
+        .then((data) => {
+          if (data.result) {
+            ads();
+          } else {
+            // Материалов нет
+          }
+        })
+        .catch((error) => { console.log(error); });
+  }
+  const ads = async() =>{
+    bridge.send('VKWebAppShowBannerAd', {
+      banner_location: 'top'
+    })
+        .then((data) => {
+          if (data.result) {
+            // Баннерная реклама отобразилась
+          }
+        })
+        .catch((error) => {
+          // Ошибка
+          console.log(error);
+        });
+  }
   const showSnackbar = (title, text, color) => {
     setSnackbar(
         <Snackbar
@@ -68,38 +97,30 @@ export const App = () => {
 
   const handleLogin = async (email, password) => {
     try {
-      console.log('Попытка входа с:', { email, password });
       const data = await login(email, password);
-      console.log('Ответ при входе:', data);
       if (data && data.access_token) {
         const newToken = data.access_token;
         setToken(newToken);
         await bridge.send('VKWebAppStorageSet', { key: 'token', value: newToken });
-        console.log('Токен сохранен:', newToken);
         await routeNavigator.push('/');
         showSnackbar('Успех', 'Вы успешно вошли в систему', 'green');
       } else {
-        console.error('Вход не удался: В ответе нет токена доступа');
         showSnackbar('Ошибка', 'Не удалось войти в систему', 'red');
       }
     } catch (error) {
-      console.error('Вход не удался:', error.response ? error.response.data : error.message);
       showSnackbar('Ошибка', 'Не удалось войти в систему', 'red');
     }
   };
 
   const handleRegister = async (userData) => {
     try {
-      console.log('Попытка регистрации с:', userData);
       const response = await api.post('/register', userData);
-      console.log('Ответ при регистрации:', response.data);
       const newToken = response.data.access_token;
       setToken(newToken);
       await bridge.send('VKWebAppStorageSet', { key: 'token', value: newToken });
       await routeNavigator.push('/');
       showSnackbar('Успех', 'Вы успешно зарегистрировались', 'green');
     } catch (error) {
-      console.error('Регистрация не удалась:', error.response ? error.response.data : error.message);
       showSnackbar('Ошибка', 'Не удалось зарегистрироваться', 'red');
     }
   };
@@ -145,6 +166,8 @@ export const App = () => {
             <CreateChapter id={DEFAULT_VIEW_PANELS.CREATECHAPTER} />
             <HistoryDetails id={DEFAULT_VIEW_PANELS.HISTORYDETAILS}/>
             <ChapterDetails id={DEFAULT_VIEW_PANELS.CHAPTERDETAILS} />
+            <Category id={DEFAULT_VIEW_PANELS.CATEGORY} />
+            <User id={DEFAULT_VIEW_PANELS.USER} />
           </Epic>
           {snackbar}
         </SplitCol>

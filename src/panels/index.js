@@ -7,3 +7,5 @@ export {CreateHistory} from './CreateHistory';
 export {CreateChapter} from './CreateChapter';
 export {HistoryDetails} from './HistoryDetails';
 export {ChapterDetails} from './ChapterDetails';
+export {Category} from './Category';
+export {User} from './User';

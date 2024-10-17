@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Panel, PanelHeader, Button, Div, Text } from '@vkontakte/vkui';
+import {Panel, PanelHeader, Button, Div, Text, Card} from '@vkontakte/vkui';
 import { useRouteNavigator } from '@vkontakte/vk-mini-apps-router';
 
 const TypewriterText = ({ text, onComplete }) => {
@@ -19,17 +19,9 @@ const TypewriterText = ({ text, onComplete }) => {
     }, [currentIndex, text, onComplete]);
 
     return (
-        <div style={{
-            backgroundColor: 'rgb(64,64,64)',
-            padding: '20px',
-            borderRadius: '10px',
-            minHeight: '200px',
-            display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'flex-start'
-        }}>
+        <Card>
             <Text weight="regular" style={{ textAlign: 'left', whiteSpace: 'pre-wrap' }}>{displayText}</Text>
-        </div>
+        </Card>
     );
 };
 
@@ -41,7 +33,7 @@ export const Welcome = ({ id }) => {
 
 Раскройте свой творческий потенциал, делитесь литературными шедеврами и погрузитесь в мир захватывающих историй. Здесь каждый найдёт свою аудиторию – от начинающих писателей до заядлых книголюбов.
 
-Присоединяйтесь к нашему яркому сообществу, где каждый голос важен и каждая история находит своего читателя. Давайте вместе создавать будущее литературы!`;
+Присоединяйтесь к нашему яркому сообществу, где каждый голос важен и каждая история находит своего читателя. `;
 
     return (
         <Panel id={id}>

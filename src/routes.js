@@ -19,6 +19,8 @@ export const DEFAULT_VIEW_PANELS = {
   CREATECHAPTER: 'createchapter',
   HISTORYDETAILS: 'historydetails',
   CHAPTERDETAILS: 'chapterdetails',
+  CATEGORY: 'category',
+  USER: 'user'
 };
 
 export const routes = RoutesConfig.create([
@@ -33,6 +35,8 @@ export const routes = RoutesConfig.create([
       createPanel(DEFAULT_VIEW_PANELS.CREATECHAPTER, '/createchapter', []),
       createPanel(DEFAULT_VIEW_PANELS.HISTORYDETAILS, '/historydetails/:storyId', []),
       createPanel(DEFAULT_VIEW_PANELS.CHAPTERDETAILS, '/chapterdetails/:chapterId', []),
+      createPanel(DEFAULT_VIEW_PANELS.CATEGORY, '/categories/:category', []),
+      createPanel(DEFAULT_VIEW_PANELS.USER, '/user/:userId', []),
     ]),
   ]),
 ]);

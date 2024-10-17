@@ -3,6 +3,7 @@ import axios from 'axios';
 const api = axios.create({
     baseURL: 'https://api-metnerium.ru',
     headers: {
+        'accept': 'application/json',
         'Content-Type': 'application/json',
     }
 });

@@ -25,13 +25,13 @@ export const Auth = ({ id, onLogin }) => {
                     role: 'reader'
                 };
                 const response = await register(userData);
-                console.log('Регистрация успешна:', response);
+                console.log('Регистрация успешна:');
                 await onLogin(email, password);
             } else {
                 await handleLogin(email, password);
             }
         } catch (error) {
-            console.error(isRegistering ? 'Ошибка регистрации:' : 'Ошибка входа:', error);
+            console.error(isRegistering ? 'Ошибка регистрации:' : 'Ошибка входа:');
             // Здесь можно добавить отображение ошибки пользователю
         }
     };
@@ -40,7 +40,7 @@ export const Auth = ({ id, onLogin }) => {
         try {
             onLogin(email, password);
         } catch (error) {
-            console.error('Ошибка входа:', error);
+            console.error('Ошибка входа:');
             // Здесь можно добавить отображение ошибки пользователю
         }
     };
@@ -50,7 +50,7 @@ export const Auth = ({ id, onLogin }) => {
             const { email: vkEmail } = await bridge.send('VKWebAppGetEmail');
             setEmail(vkEmail);
         } catch (error) {
-            console.error('Не удалось получить email:', error);
+            console.error('Не удалось получить email:');
         }
     };
 
